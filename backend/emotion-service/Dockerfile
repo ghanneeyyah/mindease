@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first (for better caching)
 COPY requirements.txt .
 RUN pip install --upgrade pip
-RUN pip install  -r requirements.txt
+RUN pip install -r requirements.txt
 
-# Pre-download the model (optional, speeds up first request)
+# Pre-download the Hugging Face model (speeds up first request)
 RUN python -c "from transformers import pipeline; pipeline('text-classification', model='j-hartmann/emotion-english-distilroberta-base')"
 
 # Copy application code

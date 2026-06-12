@@ -16,103 +16,88 @@ export default function Signup() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8080/api/auth/signup", {
+      const response = await fetch("http://localhost:8081/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password })
+        body: JSON.stringify({ username, email, passwordHash: password }),
       });
+
+      const data = await response.json();
 
       if (response.ok) {
         navigate("/login");
       } else {
-        const errData = await response.json();
-        setError(errData.message || "Signup failed. Please try again.");
+        setError(data.message || "Signup failed. Please try again.");
       }
     } catch (err) {
-      console.warn("Backend not available, falling back to mock signup");
-      navigate("/login");
+      setError("Unable to reach the server. Make sure the backend is running.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="content-area fade-in" style={{ padding: 0 }}>
-      <TopNavigationBar title="Sign Up" />
-      
-      <div style={{ padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <i className="fa-solid fa-seedling" style={{ fontSize: '40px', color: 'var(--accent-primary)', marginBottom: '24px' }}></i>
-        <h1 style={{ fontSize: '28px', marginBottom: '32px' }}>Create Account</h1>
+    <div className="min-h-screen bg-white">
+      <TopNavigationBar title="Sign Up" showBack={false} />
 
-        <form onSubmit={handleSignup} style={{ width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="flex flex-col items-center px-5 pt-10">
+        <i className="fa-solid fa-seedling text-4xl text-green-500 mb-6"></i>
+        <h1 className="text-2xl font-semibold mb-8">Create Account</h1>
+
+        <form onSubmit={handleSignup} className="w-full max-w-xs flex flex-col gap-4">
           {error && (
-            <div style={{ color: 'red', fontSize: '14px', textAlign: 'center' }}>{error}</div>
+            <div className="bg-red-50 text-red-600 text-sm text-center px-4 py-2 rounded-lg">
+              {error}
+            </div>
           )}
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Username</label>
-            <input 
-              type="text" 
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-gray-500">Username</label>
+            <input
+              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid #ddd',
-                backgroundColor: 'var(--bg-panel)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                fontFamily: 'inherit'
-              }}
+              className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Email</label>
-            <input 
-              type="email" 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-gray-500">Email</label>
+            <input
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid #ddd',
-                backgroundColor: 'var(--bg-panel)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                fontFamily: 'inherit'
-              }}
+              className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Password</label>
-            <input 
-              type="password" 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-gray-500">Password</label>
+            <input
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid #ddd',
-                backgroundColor: 'var(--bg-panel)',
-                color: 'var(--text-primary)',
-                outline: 'none',
-                fontFamily: 'inherit'
-              }}
+              className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-green-300"
             />
           </div>
 
-          <button type="submit" className="btn-primary" style={{ marginTop: '16px' }} disabled={loading}>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {loading ? "Signing up..." : "Sign Up"}
           </button>
         </form>
 
-        <p style={{ marginTop: '24px', fontSize: '14px', color: 'var(--text-secondary)' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--accent-primary)', fontWeight: '600', textDecoration: 'none' }}>Login</Link>
+        <p className="mt-6 text-sm text-gray-500">
+          Already have an account?{" "}
+          <Link to="/login" className="text-green-500 font-semibold">
+            Login
+          </Link>
         </p>
       </div>
     </div>
