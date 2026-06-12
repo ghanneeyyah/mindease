@@ -44,13 +44,14 @@ public class UserController {
             boolean isValid = userService.login(loginRequest.getUsername(),loginRequest.getPassword());
             if(isValid){
                 String token = jwtService.generateToken(loginRequest.getUsername());
-                return ResponseEntity.ok(new LoginResponse(token, "Login successful"));
+                User user = userService.getUserByUsername(loginRequest.getUsername());
+                return ResponseEntity.ok(new LoginResponse(token, "Login successful", user.getId(), user.getUsername()));
             }
             else{
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse(null, "Invalid credentials"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new LoginResponse(null, "Invalid credentials", null, null));
             }
         }catch(Exception e){
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new LoginResponse(null, "Login failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new LoginResponse(null, "Login failed", null, null));
         }
 
     }

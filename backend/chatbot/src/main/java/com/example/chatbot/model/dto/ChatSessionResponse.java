@@ -3,8 +3,6 @@ package com.example.chatbot.model.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.example.chatbot.model.entity.enums.Status;
-
 import lombok.Getter;
 import lombok.Setter;
 

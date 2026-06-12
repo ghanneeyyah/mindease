@@ -7,8 +7,9 @@ import org.springframework.stereotype.Service;
 public class PasswordService {
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public PasswordService() {
-        this.passwordEncoder = new BCryptPasswordEncoder();
+    // Inject the bean from SecurityConfig instead of creating a new one
+    public PasswordService(BCryptPasswordEncoder passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
     }
 
     public String hashPassword(String plainPassword) {

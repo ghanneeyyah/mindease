@@ -65,26 +65,14 @@ public class ChatService {
     
     
 
-    //@Transactional
-    // public Message processMessage(ChatRequest request) {
-    //     ChatSession session = chatSessionRepo.findById(request.getSessionId())
-    //         .orElseThrow(() -> new ChatSessionNotFound());
-        
-    //     Message message = new Message();
-    //     message.setChatSession(session);
-    //     message.setText(request.getText());
-    //     message.setSenderType("USER");
-    //     message.setTimestamp(LocalDateTime.now());
-        
-    //     // TODO: Add AI response logic here
-        
-    //     return messageRepo.save(message);
-    // }
-
     @Transactional
     public ChatResponse processMessage(ChatRequest request) {
-        ChatSession session = chatSessionRepo.findById(request.getSessionId())
-            .orElseThrow(() -> new ChatSessionNotFound(request.getSessionId()));
+        Long sessionId = request.getSessionId();
+        if (sessionId == null) {
+            throw new IllegalArgumentException("Session ID cannot be null");
+        }
+        ChatSession session = chatSessionRepo.findById(sessionId)
+            .orElseThrow(() -> new ChatSessionNotFound(sessionId));
         
          // Save user message
         Message userMessage = new Message();
@@ -146,10 +134,8 @@ public class ChatService {
 
 
     public Object getUserSessions(Long userId) {
-        // TODO Auto-generated method stub
         return chatSessionRepo.findByUserId(userId);
     }
-
     private ChatResponse mapToChatResponse(Message message) {
         ChatResponse response = new ChatResponse();
         response.setMessageId(message.getId());

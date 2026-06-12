@@ -7,6 +7,6 @@ public class ChatSessionNotFound extends NotFoundException {
         super("Session Not Found.");
     }
     public ChatSessionNotFound(Long id){
-        super("User with name "+id+" was not found");
+        super("Chat session with id "+id+" was not found");
     }
 }

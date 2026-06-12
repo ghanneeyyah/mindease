@@ -8,6 +8,7 @@ import reactor.core.publisher.Mono;
 import java.util.Map;
 
 @Service
+@SuppressWarnings("null")
 public class EmotionServiceClient {
     
     private final WebClient webClient;
