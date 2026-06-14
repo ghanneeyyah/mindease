@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import LandingPage from "./pages/LandingPage"
 import Login from "./pages/Login"
 import Signup from "./pages/Signup"
-import ChatInterface from "./pages/ChatInterface"
+import ChatPage from "./pages/ChatPage"
 import CrisisPage from "./pages/CrisisPage"
 import BreathingPage from "./pages/BreathingPage"
 import HistoryPage from "./pages/HistoryPage"
@@ -10,7 +10,6 @@ import SettingsPage from "./pages/SettingsPage"
 import FaqPage from "./pages/FaqPage"
 import BottomNavigation from "./components/BottomNavigation"
 
-// Redirects to /login if user is not authenticated
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token")
   return token ? children : <Navigate to="/login" replace />
@@ -36,7 +35,7 @@ function App() {
 
         {/* Protected routes — require login */}
         <Route path="/chat" element={
-          <ProtectedRoute><ChatInterface /></ProtectedRoute>
+          <ProtectedRoute><ChatPage /></ProtectedRoute>
         } />
         <Route path="/history" element={
           <ProtectedRoute><HistoryPage /></ProtectedRoute>

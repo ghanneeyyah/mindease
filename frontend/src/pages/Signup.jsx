@@ -19,14 +19,17 @@ export default function Signup() {
       const response = await fetch("http://localhost:8081/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, passwordHash: password }),
+        body: JSON.stringify({ 
+          username, 
+          email, 
+          passwordHash: password 
+        }),
       });
-
-      const data = await response.json();
 
       if (response.ok) {
         navigate("/login");
       } else {
+        const data = await response.json();
         setError(data.message || "Signup failed. Please try again.");
       }
     } catch (err) {

@@ -15,28 +15,24 @@ export default function Login() {
     setError("");
 
     try {
-      // Trying to connect to local backend
-      const response = await fetch("http://localhost:8080/api/auth/login", {
+      const response = await fetch("http://localhost:8081/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         localStorage.setItem("token", data.token);
-        localStorage.setItem("username", username);
+        localStorage.setItem("userId", data.userId);
+        localStorage.setItem("username", data.username);
         navigate("/chat");
       } else {
-        const errData = await response.json();
-        setError(errData.message || "Invalid credentials. Please try again.");
+        setError(data.message || "Invalid credentials. Please try again.");
       }
     } catch (err) {
-      console.warn("Backend not available, falling back to mock login");
-      // Fallback for UI testing
-      localStorage.setItem("token", "mock-token-123");
-      localStorage.setItem("username", username);
-      navigate("/chat");
+      setError("Unable to reach the server. Make sure the backend is running.");
     } finally {
       setLoading(false);
     }
