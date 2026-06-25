@@ -1,8 +1,8 @@
 package com.example.chatbot.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +16,7 @@ import com.example.chatbot.model.dto.ChatRequest;
 import com.example.chatbot.model.dto.ChatResponse;
 import com.example.chatbot.model.dto.ChatSessionResponse;
 import com.example.chatbot.model.dto.CreateChatSession;
+import com.example.chatbot.model.dto.SaveBotMessageRequest;
 import com.example.chatbot.model.entity.ChatSession;
 import com.example.chatbot.model.entity.Message;
 import com.example.chatbot.model.entity.User;
@@ -42,29 +43,38 @@ public class ChatService {
     @Autowired
     private EmotionServiceClient emotionClient;
 
-    // Add confidence threshold constant
-    private static final double CONFIDENCE_THRESHOLD = 0.6; // Adjust as needed
-    
+    private static final double CONFIDENCE_THRESHOLD = 0.6;
 
     @Transactional
     public ChatSessionResponse createSession(CreateChatSession request) {
         User user = userRepo.findById(request.getUserId())
             .orElseThrow(() -> new UserNotFound(request.getUserId()));
-        
-        ChatSession session = new ChatSession();
-        session.setUser(user);
-        session.setStatus(Status.ACTIVE);
-        session.setSessionStartTime(LocalDateTime.now());
-        session.setSessionEndTime(LocalDateTime.now());
-        
-        ChatSession savedSession = chatSessionRepo.save(session);
-        
-        // Convert to DTO (no password exposure)
-        return mapToResponse(savedSession);
-    }
-    
-    
 
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = startOfDay.plusDays(1);
+
+        return chatSessionRepo
+            .findTodaysSession(request.getUserId(), startOfDay, endOfDay)
+            .map(existingSession -> {
+                log.info("Returning existing session {} for user {}", existingSession.getId(), request.getUserId());
+                return mapToResponse(existingSession);
+            })
+            .orElseGet(() -> {
+                log.info("Creating new session for user {}", request.getUserId());
+                ChatSession session = new ChatSession();
+                session.setUser(user);
+                session.setStatus(Status.ACTIVE);
+                session.setSessionStartTime(LocalDateTime.now());
+                session.setSessionEndTime(LocalDateTime.now());
+                ChatSession savedSession = chatSessionRepo.save(session);
+                return mapToResponse(savedSession);
+            });
+    }
+
+    /**
+     * Saves the user message with emotion analysis and returns it.
+     * Does NOT generate or save a bot response — that comes from Gemini via the frontend.
+     */
     @Transactional
     public ChatResponse processMessage(ChatRequest request) {
         Long sessionId = request.getSessionId();
@@ -73,54 +83,61 @@ public class ChatService {
         }
         ChatSession session = chatSessionRepo.findById(sessionId)
             .orElseThrow(() -> new ChatSessionNotFound(sessionId));
-        
-         // Save user message
+
+        // Save user message
         Message userMessage = new Message();
         userMessage.setChatSession(session);
         userMessage.setText(request.getText());
         userMessage.setSenderType("USER");
         userMessage.setTimestamp(LocalDateTime.now());
-        
-        // Call Python service for emotion detection
+
+        // Emotion analysis — used as metadata only, not to generate response
         String sentiment;
         try {
             SimpleEmotionResponse emotionResponse = emotionClient
                     .analyzeEmotionSimple(request.getText())
                     .block();
-            
-            // 🔥 CONFIDENCE THRESHOLD CHECK HERE!
+
             if (emotionResponse != null && emotionResponse.getConfidence() >= CONFIDENCE_THRESHOLD) {
                 sentiment = emotionResponse.getEmotion();
                 log.info("Emotion detected: {} with confidence: {}", sentiment, emotionResponse.getConfidence());
             } else {
-                // Low confidence - fallback to neutral or context-based
                 sentiment = detectEmotionByKeywords(request.getText());
                 log.warn("Low confidence emotion, using keyword fallback: {}", sentiment);
             }
         } catch (Exception e) {
-            log.error("Emotion service failed, using fallback", e);
+            log.error("Emotion service unreachable, using keyword fallback", e);
             sentiment = detectEmotionByKeywords(request.getText());
         }
-        
+
         userMessage.setSentimentLabel(sentiment);
         Message savedUserMessage = messageRepo.save(userMessage);
-        
-        // Generate bot response based on emotion
-        String botResponse = generateResponseBasedOnEmotion(request.getText(), sentiment);
-        
-        // Save bot response
-        Message botMessage = new Message();
-        botMessage.setChatSession(session);
-        botMessage.setText(botResponse);
-        botMessage.setSenderType("BOT");
-        botMessage.setTimestamp(LocalDateTime.now());
-        messageRepo.save(botMessage);
-        
+
         // Update session end time
         session.setSessionEndTime(LocalDateTime.now());
         chatSessionRepo.save(session);
-        
+
         return mapToChatResponse(savedUserMessage);
+    }
+
+    /**
+     * Saves the Gemini-generated bot response sent back from the frontend.
+     */
+    @Transactional
+    public ChatResponse saveBotMessage(SaveBotMessageRequest request) {
+        ChatSession session = chatSessionRepo.findById(request.getSessionId())
+            .orElseThrow(() -> new ChatSessionNotFound(request.getSessionId()));
+
+        Message botMessage = new Message();
+        botMessage.setChatSession(session);
+        botMessage.setText(request.getText());
+        botMessage.setSenderType("BOT");
+        botMessage.setTimestamp(LocalDateTime.now());
+
+        session.setSessionEndTime(LocalDateTime.now());
+        chatSessionRepo.save(session);
+
+        return mapToChatResponse(messageRepo.save(botMessage));
     }
 
     @Transactional
@@ -131,11 +148,15 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-
-
-    public Object getUserSessions(Long userId) {
-        return chatSessionRepo.findByUserId(userId);
+    @Transactional
+    public List<ChatSessionResponse> getUserSessions(Long userId) {
+        return chatSessionRepo
+            .findByUserIdOrderBySessionStartTimeDesc(userId)
+            .stream()
+            .map(this::mapToResponse)
+            .collect(Collectors.toList());
     }
+
     private ChatResponse mapToChatResponse(Message message) {
         ChatResponse response = new ChatResponse();
         response.setMessageId(message.getId());
@@ -158,57 +179,20 @@ public class ChatService {
         return response;
     }
 
-     /**
-     * Keyword-based fallback when AI confidence is low
-     */
     private String detectEmotionByKeywords(String text) {
         String lowerText = text.toLowerCase();
-        
-        // Fear-related keywords
-        if (containsAny(lowerText, "scared", "afraid", "fear", "terrified", "unsafe", "danger", "worried", "anxious")) {
-            return "fear";
-        }
-        // Sadness-related keywords
-        if (containsAny(lowerText, "sad", "unhappy", "depressed", "lonely", "hopeless", "cry", "miserable", "down")) {
-            return "sadness";
-        }
-        // Anger-related keywords
-        if (containsAny(lowerText, "angry", "mad", "furious", "frustrated", "annoyed", "hate")) {
-            return "anger";
-        }
-        // Joy-related keywords
-        if (containsAny(lowerText, "happy", "joy", "excited", "wonderful", "great", "amazing", "love", "glad")) {
-            return "joy";
-        }
-        // Surprise-related keywords
-        if (containsAny(lowerText, "surprised", "shocked", "unexpected", "wow", "omg")) {
-            return "surprise";
-        }
-        
+        if (containsAny(lowerText, "scared", "afraid", "fear", "terrified", "unsafe", "danger", "worried", "anxious")) return "fear";
+        if (containsAny(lowerText, "sad", "unhappy", "depressed", "lonely", "hopeless", "cry", "miserable", "down")) return "sadness";
+        if (containsAny(lowerText, "angry", "mad", "furious", "frustrated", "annoyed", "hate")) return "anger";
+        if (containsAny(lowerText, "happy", "joy", "excited", "wonderful", "great", "amazing", "love", "glad")) return "joy";
+        if (containsAny(lowerText, "surprised", "shocked", "unexpected", "wow", "omg")) return "surprise";
         return "neutral";
     }
 
     private boolean containsAny(String text, String... keywords) {
         for (String keyword : keywords) {
-            if (text.contains(keyword)) {
-                return true;
-            }
+            if (text.contains(keyword)) return true;
         }
         return false;
-    }
-
-    private String generateResponseBasedOnEmotion(String message, String emotion) {
-        Map<String, String> responses = Map.of(
-        "joy", "That's wonderful to hear! What's making you feel so joyful?",
-        "sadness", "I'm here for you. Would you like to talk about what's bothering you?",
-        "anger", "I hear your frustration. Let's work through this together.",
-        "fear", "It's okay to feel anxious. Take a deep breath. You're safe here.",
-        "love", "That's beautiful! Spreading love makes the world better.",
-        "surprise", "Wow! That sounds unexpected. Tell me more!",
-        "neutral", "Thank you for sharing. How else can I support you today?"
-        );
-        
-        return responses.getOrDefault(emotion.toLowerCase(), 
-            "I understand. Please continue sharing.");
     }
 }
