@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from transformers import pipeline
 import google.generativeai as genai
@@ -10,6 +11,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Emotion Detection + Chat Service")
+
+# ============================================
+# CORS
+# ============================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ============================================
 # Load Emotion Detection Model
@@ -31,24 +43,24 @@ except Exception as e:
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your-gemini-api-key-here")
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Use a lightweight model for faster responses
-gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+gemini_model = genai.GenerativeModel('gemini-2.0-flash')
 
 MENTAL_HEALTH_PROMPT = """
-You are MindEase, a supportive and empathetic mental health companion. 
-Your role is to:
-- Listen actively and validate the user's feelings
-- Offer gentle, evidence-based coping strategies when appropriate
-- Never diagnose conditions or prescribe medication
-- Always prioritize user safety — if someone expresses self-harm or suicidal thoughts, 
-  encourage them to contact a crisis helpline immediately
-- Keep responses concise (2-4 sentences), warm, and conversational
-- Match your tone to the user's detected emotion
+You are MindEase, a warm and caring mental health companion — like a thoughtful friend who genuinely listens.
 
-The user's detected emotion is: {emotion}
-User message: {user_message}
+Guidelines:
+- Speak naturally and warmly, like a real person — not a therapist or a robot
+- Validate the user's feelings first before offering anything else
+- Ask one gentle follow-up question to keep the conversation going
+- Keep it short: 2-3 sentences max
+- If the user expresses self-harm or suicidal thoughts, gently encourage them to call or text 988
+- Never use clinical language, bullet points, or formal structure
+- Don't start with "I" — vary your sentence openings
 
-Respond as MindEase:
+The user is feeling: {emotion} (confidence: {confidence:.0%})
+Their message: "{user_message}"
+
+Reply as MindEase (conversational, warm, human):
 """
 
 # ============================================
@@ -86,28 +98,28 @@ def get_emotion_results(text: str):
     
     return emotions, dominant['label'], round(dominant['score'], 4)
 
-def generate_gemini_response(user_message: str, emotion: str) -> str:
+def generate_gemini_response(user_message: str, emotion: str, confidence: float) -> str:
     """Generate a response using Gemini based on detected emotion"""
     try:
         prompt = MENTAL_HEALTH_PROMPT.format(
             emotion=emotion,
+            confidence=confidence,
             user_message=user_message
         )
         response = gemini_model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         logger.error(f"Gemini API error: {e}")
-        # Fallback responses if Gemini fails
         fallbacks = {
-            "joy": "That's wonderful to hear! What's making you feel so joyful?",
-            "sadness": "I'm here for you. Would you like to talk about what's bothering you?",
-            "anger": "I hear your frustration. Let's work through this together.",
-            "fear": "It's okay to feel anxious. Take a deep breath. You're safe here.",
-            "love": "That's beautiful! Spreading love makes the world better.",
-            "surprise": "Wow! That sounds unexpected. Tell me more!",
-            "neutral": "Thank you for sharing. How else can I support you today?"
+            "joy": "That's so good to hear! What's been making you smile lately?",
+            "sadness": "That sounds really hard, and it makes sense you're feeling that way. Want to share more about what's going on?",
+            "anger": "Ugh, that sounds so frustrating. What happened?",
+            "fear": "Hey, you're safe here. Take a breath — what's been weighing on you?",
+            "love": "That's really sweet to hear. Tell me more!",
+            "surprise": "Oh wow, that sounds unexpected! What happened?",
+            "neutral": "Thanks for sharing that with me. What's been on your mind?"
         }
-        return fallbacks.get(emotion.lower(), "I understand. Please continue sharing.")
+        return fallbacks.get(emotion.lower(), "I'm here — tell me more.")
 
 # ============================================
 # Endpoints
@@ -157,8 +169,8 @@ async def chat(request: ChatRequest):
     # Step 1: Detect emotion
     emotions, dominant, confidence = get_emotion_results(request.text)
     
-    # Step 2: Generate response using Gemini
-    bot_response = generate_gemini_response(request.text, dominant)
+    # Step 2: Generate response using Gemini with confidence
+    bot_response = generate_gemini_response(request.text, dominant, confidence)
     
     logger.info(f"Chat: '{request.text[:50]}...' -> {dominant} -> Response generated")
     

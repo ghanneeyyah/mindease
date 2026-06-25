@@ -16,6 +16,7 @@ import com.example.chatbot.model.dto.ChatRequest;
 import com.example.chatbot.model.dto.ChatResponse;
 import com.example.chatbot.model.dto.ChatSessionResponse;
 import com.example.chatbot.model.dto.CreateChatSession;
+import com.example.chatbot.model.dto.SaveBotMessageRequest;
 import com.example.chatbot.service.ChatService;
 
 @RestController
@@ -29,15 +30,21 @@ public class ChatController {
         ChatSessionResponse response = chatService.createSession(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-    
+
     @PostMapping("/message")
     public ResponseEntity<ChatResponse> sendMessage(@RequestBody ChatRequest request) {
         ChatResponse response = chatService.processMessage(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
-    
+
+    @PostMapping("/message/bot")
+    public ResponseEntity<ChatResponse> saveBotMessage(@RequestBody SaveBotMessageRequest request) {
+        ChatResponse response = chatService.saveBotMessage(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
     @GetMapping("/sessions/{userId}")
-    public ResponseEntity<?> getUserSessions(@PathVariable Long userId) {
+    public ResponseEntity<List<ChatSessionResponse>> getUserSessions(@PathVariable Long userId) {
         return ResponseEntity.ok(chatService.getUserSessions(userId));
     }
 
