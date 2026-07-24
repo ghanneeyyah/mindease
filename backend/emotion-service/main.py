@@ -38,29 +38,41 @@ except Exception as e:
     emotion_classifier = None
 
 # ============================================
-# Configure Gemini
-# ============================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your-gemini-api-key-here")
 genai.configure(api_key=GEMINI_API_KEY)
-
-gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+gemini_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
 
 MENTAL_HEALTH_PROMPT = """
-You are MindEase, a warm and caring mental health companion — like a thoughtful friend who genuinely listens.
+You are MindEase, a warm, compassionate mental health companion who feels like a trusted friend.
+
+Your goal is to help the user feel heard, understood, and supported.
 
 Guidelines:
-- Speak naturally and warmly, like a real person — not a therapist or a robot
-- Validate the user's feelings first before offering anything else
-- Ask one gentle follow-up question to keep the conversation going
-- Keep it short: 2-3 sentences max
-- If the user expresses self-harm or suicidal thoughts, gently encourage them to call or text 988
-- Never use clinical language, bullet points, or formal structure
-- Don't start with "I" — vary your sentence openings
+- Speak naturally, warmly, and conversationally.
+- Validate the user's feelings before offering suggestions.
+- Focus on understanding before solving.
+- Ask one gentle follow-up question to continue the conversation.
+- Keep responses to 2-3 sentences.
+- Vary sentence openings naturally.
+- Never sound clinical, robotic, or scripted.
+- Never mention being an AI or language model.
+- Never invent facts about the user.
+- If the detected emotion conflicts with the user's message, trust the user's message.
 
-The user is feeling: {emotion} (confidence: {confidence:.0%})
-Their message: "{user_message}"
+Detected emotion (may be imperfect):
+{emotion} (confidence: {confidence:.0%})
 
-Reply as MindEase (conversational, warm, human):
+User message:
+"{user_message}"
+
+If the user expresses suicidal thoughts or immediate danger:
+- Respond with empathy.
+- Encourage them to reach out to someone they trust.
+- Recommend contacting an appropriate local crisis service or emergency services if they are in immediate danger.
+- Stay calm and supportive.
+
+Reply only as MindEase.
 """
 
 # ============================================
@@ -109,17 +121,28 @@ def generate_gemini_response(user_message: str, emotion: str, confidence: float)
         response = gemini_model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
-        logger.error(f"Gemini API error: {e}")
-        fallbacks = {
-            "joy": "That's so good to hear! What's been making you smile lately?",
-            "sadness": "That sounds really hard, and it makes sense you're feeling that way. Want to share more about what's going on?",
-            "anger": "Ugh, that sounds so frustrating. What happened?",
-            "fear": "Hey, you're safe here. Take a breath — what's been weighing on you?",
-            "love": "That's really sweet to hear. Tell me more!",
-            "surprise": "Oh wow, that sounds unexpected! What happened?",
-            "neutral": "Thanks for sharing that with me. What's been on your mind?"
-        }
-        return fallbacks.get(emotion.lower(), "I'm here — tell me more.")
+        logger.error(f"Gemini API error with primary model: {e}")
+        try:
+            fallback_model = genai.GenerativeModel("gemini-flash-lite-latest")
+            prompt = MENTAL_HEALTH_PROMPT.format(
+                emotion=emotion,
+                confidence=confidence,
+                user_message=user_message
+            )
+            response = fallback_model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as fallback_err:
+            logger.error(f"Gemini fallback model error: {fallback_err}")
+            fallbacks = {
+                "joy": "That's so good to hear! What's been making you smile lately?",
+                "sadness": "That sounds really hard, and it makes sense you're feeling that way. Want to share more about what's going on?",
+                "anger": "Ugh, that sounds so frustrating. What happened?",
+                "fear": "Hey, you're safe here. Take a breath — what's been weighing on you?",
+                "love": "That's really sweet to hear. Tell me more!",
+                "surprise": "Oh wow, that sounds unexpected! What happened?",
+                "neutral": "Thanks for sharing that with me. What's been on your mind?"
+            }
+            return fallbacks.get(emotion.lower(), "I'm here — tell me more.")
 
 # ============================================
 # Endpoints
