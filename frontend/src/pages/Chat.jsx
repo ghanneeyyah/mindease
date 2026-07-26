@@ -93,13 +93,22 @@ const Chat = () => {
     }
   };
 
-  const goToToday = () => switchSession(todaySessionId);
-
-  const isViewingToday = currentSessionId === todaySessionId;
-  const currentSession = sessions.find(s => s.sessionId === currentSessionId);
+  // Converts your existing `messages` state (from Java) into the
+  // { role, text } shape Gemini/Python expects, oldest-first.
+  // Excludes the message currently being sent — that goes separately.
+  const buildHistoryForGemini = (msgs, maxTurns = 20) => {
+    const trimmed = msgs.slice(-(maxTurns * 2)); // keep it bounded
+    return trimmed.map((m) => ({
+      role: m.senderType === "USER" ? "user" : "model",
+      text: m.text,
+    }));
+  };
 
   const sendMessage = async (text) => {
     if (!text.trim() || !currentSessionId) return;
+
+    // Build history from current messages BEFORE we optimistically add the new one
+    const historyForGemini = buildHistoryForGemini(messages);
 
     // Optimistically show user message
     const tempUserMessage = {
@@ -115,8 +124,8 @@ const Chat = () => {
       // Step 1: Save user message to Java, get emotion analysis back
       await chatService.sendMessage(currentSessionId, text);
 
-      // Step 2: Get Gemini response from Python emotion service
-      const emotionResponse = await emotionService.analyzeAndRespond(text);
+      // Step 2: Get Gemini response from Python emotion service, WITH conversation history
+      const emotionResponse = await emotionService.analyzeAndRespond(text, historyForGemini);
 
       // Step 3: Save Gemini bot response to Java
       await chatService.saveBotMessage(currentSessionId, emotionResponse.bot_response);
@@ -161,6 +170,11 @@ const Chat = () => {
       setIsTyping(false);
     }
   };
+
+  const goToToday = () => switchSession(todaySessionId);
+
+  const isViewingToday = currentSessionId === todaySessionId;
+  const currentSession = sessions.find(s => s.sessionId === currentSessionId);
 
   const handleCrisisHelp = () => navigate("/crisis", { state: { returnTo: "/chat" } });
   const dismissCrisis = () => setCrisisDetected(false);

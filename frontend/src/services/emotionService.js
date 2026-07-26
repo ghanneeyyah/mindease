@@ -14,9 +14,11 @@ export const emotionService = {
   },
 
   // Get empathetic response based on emotion
-  analyzeAndRespond: async (text) => {
+  // `history` = array of { role: "user" | "model", text: "..." } in chronological order,
+  // NOT including the current message (that's sent separately as `text`).
+  analyzeAndRespond: async (text, history = []) => {
     try {
-      const response = await emotionApi.post("/chat", { text });
+      const response = await emotionApi.post("/chat", { text, history });
       return {
         detected_emotion: response.data.detected_emotion,
         confidence: response.data.confidence,
@@ -25,7 +27,7 @@ export const emotionService = {
       };
     } catch (error) {
       console.error("Emotion service error:", error);
-      
+
       // Fallback responses if Python service is down
       const fallbackResponses = {
         sad: "I hear that you're feeling down. That's completely valid. Would you like to talk more about what's making you feel this way? I'm here to listen. 💙",
@@ -34,14 +36,14 @@ export const emotionService = {
         joy: "I love hearing that you're feeling good! That's wonderful. Would you like to share more about what's bringing you joy? 😊",
         neutral: "Thank you for sharing. I'm here to support you however you need. How can I help you today? 💚",
       };
-      
+
       // Simple keyword detection for fallback
       let emotion = "neutral";
       if (text.match(/sad|depressed|down|unhappy|lonely|alone/i)) emotion = "sad";
       else if (text.match(/angry|mad|frustrated|annoyed|hate/i)) emotion = "angry";
       else if (text.match(/anxious|nervous|worried|scared|fear|panic/i)) emotion = "fear";
       else if (text.match(/happy|great|wonderful|excited|joy|good/i)) emotion = "joy";
-      
+
       return {
         detected_emotion: emotion,
         confidence: 0.7,
