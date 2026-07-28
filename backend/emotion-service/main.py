@@ -260,4 +260,5 @@ async def analyze_debug(request: TextRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", 5000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
