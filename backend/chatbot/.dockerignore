@@ -1,8 +1,0 @@
-target/
-*.log
-.git
-.gitignore
-README.md
-.mvn/
-mvnw
-mvnw.cmd
