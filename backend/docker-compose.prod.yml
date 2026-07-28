@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  spring-boot:
+    image: mindease-backend:latest
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      EMOTION_SERVICE_URL: ${EMOTION_SERVICE_URL}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    ports:
+      - "8081:8081"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  emotion-service:
+    image: mindease-emotion:latest
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "5000:5000"
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

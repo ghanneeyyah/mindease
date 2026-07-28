@@ -1,0 +1,5 @@
+component,count,avg_ms,min_ms,max_ms,p95_ms,p99_ms
+Full Flow (Spring Boot + Emotion + Gemini),5,247.7,151.1,332.8,332.8,332.8
+Emotion Service (Hugging Face + Gemini),5,2779.1,1353,4454,4454,4454
+Emotion Detection (Hugging Face Only),5,92.6,57.7,146.2,146.2,146.2
+Gemini API Only,5,2689.9,1357.7,3907.1,3907.1,3907.1
