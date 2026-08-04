@@ -14,8 +14,8 @@ base = "C:\\Users\\USER\\Documents\\ganiyatfinal\\mindease\\frontend"
 command = "npm run build"
 
 [build.environment]
-VITE_API_URL = "https://mindease-api.up.railway.app/api"
-VITE_EMOTION_API_URL = "https://mindease-ai.up.railway.app"
+VITE_API_URL = "https://mindease.pxxl.run"
+VITE_EMOTION_API_URL = "https://mindease-ai.pxxl.run"
 
 [build.processing]
 
