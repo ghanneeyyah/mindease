@@ -19,7 +19,12 @@ app = FastAPI(title="Emotion Detection + Chat Service")
 # ============================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://localhost:5173",
+        "https://mindease-ai.pxxl.run",  # Add production domain
+        "https://yourdomain.com"          # Replace with your actual domain
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,7 +49,7 @@ except Exception as e:
 # ============================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your-gemini-api-key-here")
 genai.configure(api_key=GEMINI_API_KEY)
-GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")  # Updated to correct model name
 
 SYSTEM_INSTRUCTION = """
 You are MindEase, a warm, compassionate mental health companion who feels like a trusted friend.
@@ -162,7 +167,7 @@ def generate_gemini_response(
         logger.error(f"Gemini API error with primary model: {e}")
         try:
             fallback_model = genai.GenerativeModel(
-                "gemini-flash-lite-latest",
+                "gemini-1.5-flash-lite",  # Updated to correct model name
                 system_instruction=SYSTEM_INSTRUCTION
             )
             chat = fallback_model.start_chat(history=gemini_history)
@@ -196,7 +201,8 @@ def health_check():
     return {
         "status": "healthy",
         "model_loaded": emotion_classifier is not None,
-        "gemini_configured": GEMINI_API_KEY != "your-gemini-api-key-here"
+        "gemini_configured": GEMINI_API_KEY != "your-gemini-api-key-here",
+        "port": int(os.getenv("PORT", 8080))
     }
 
 @app.post("/analyze", response_model=EmotionResponse)
@@ -260,4 +266,8 @@ async def analyze_debug(request: TextRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    # Use PORT environment variable if set, otherwise default to 8080
+    # The deployment expects port 8080 (or whatever PORT is set to)
+    port = int(os.getenv("PORT", 8080))
+    logger.info(f"Starting server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
