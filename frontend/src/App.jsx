@@ -7,7 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Crisis from "./pages/Crisis";
 import Grounding from "./pages/Grounding";
-import FAQ from "./pages/FAQ";
+import FAQ from "./pages/Faq";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 
