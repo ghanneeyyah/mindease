@@ -1,4 +1,5 @@
-FROM eclipse-temurin:21-jdk-jammy
+# Stage 1: Build
+FROM eclipse-temurin:21-jdk-jammy AS build
 
 WORKDIR /app
 
@@ -7,15 +8,19 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
-# Download dependencies
-RUN ./mvnw dependency:go-offline -B
+# Fix Windows line endings, make mvnw executable, and pre-fetch dependencies
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw dependency:go-offline -B
 
-# Copy source code
+# Copy source code and build the fat JAR
 COPY src src
-
-# Build the application
 RUN ./mvnw package -DskipTests
 
-# Run the application
+# Stage 2: Runtime
+FROM eclipse-temurin:21-jre-jammy
+
+WORKDIR /app
+
+COPY --from=build /app/target/chatbot-0.0.1-SNAPSHOT.jar app.jar
+
 EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "target/chatbot-0.0.1-SNAPSHOT.jar"]
+ENTRYPOINT ["java", "-Xmx384m", "-Xms128m", "-jar", "app.jar"]
